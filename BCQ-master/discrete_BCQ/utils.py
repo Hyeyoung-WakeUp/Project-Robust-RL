@@ -2,6 +2,7 @@ import cv2
 import gym
 import numpy as np
 import torch
+from cartpole import CartPoleEnv
 
 def ReplayBuffer(state_dim, is_atari, atari_preprocessing, batch_size, buffer_size, device):
 	if is_atari: 
@@ -298,7 +299,7 @@ class AtariPreprocessing(object):
 
 # Create environment, add wrapper if necessary and create env_properties
 def make_env(env_name, atari_preprocessing):
-	env = gym.make(env_name)
+	env = CartPoleEnv()
 	
 	is_atari = gym.envs.registry.spec(env_name).entry_point == 'gym.envs.atari:AtariEnv'
 	env = AtariPreprocessing(env, **atari_preprocessing) if is_atari else env

@@ -259,8 +259,8 @@ if __name__ == "__main__":
 	parser.add_argument("--BCQ_threshold", default=0.3, type=float)# Threshold hyper-parameter for BCQ
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
-	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy
-	parser.add_argument("--generate_buffer", action="store_false")  # If true, generate buffer
+	parser.add_argument("--train_behavioral", action="store_false") # If true, train behavioral policy
+	parser.add_argument("--generate_buffer", action="store_true")  # If true, generate buffer
 	args = parser.parse_args()
 	
 	print("---------------------------------------")	
