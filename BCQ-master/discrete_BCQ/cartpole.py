@@ -95,11 +95,15 @@ class CartPoleEnv(gym.Env):
 
         self.steps_beyond_done = None
 
+        self._max_episode_steps = 200
+        self._steps = 0
+
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
     def step(self, action):
+        self._steps += 1
         err_msg = "%r (%s) invalid" % (action, type(action))
         assert self.action_space.contains(action), err_msg
 
@@ -115,7 +119,7 @@ class CartPoleEnv(gym.Env):
         xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
 
         if self.kinematics_integrator == 'euler':
-            x = x + self.tau * x_dot
+            x = x + self.tau * x_dot # we can delete this too but let them stay for later
             x_dot = x_dot + self.tau * xacc
             theta = theta + self.tau * theta_dot
             theta_dot = theta_dot + self.tau * thetaacc
@@ -124,7 +128,8 @@ class CartPoleEnv(gym.Env):
             x = x + self.tau * x_dot
             theta_dot = theta_dot + self.tau * thetaacc
             theta = theta + self.tau * theta_dot
-
+        
+        x = 0 # fix the position of the cart
         self.state = (x, x_dot, theta, theta_dot)
 
         done = bool(
@@ -132,6 +137,7 @@ class CartPoleEnv(gym.Env):
             or x > self.x_threshold
             or theta < -self.theta_threshold_radians
             or theta > self.theta_threshold_radians
+            or self._steps >= 200
         )
 
         if not done:
@@ -156,6 +162,7 @@ class CartPoleEnv(gym.Env):
     def reset(self):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
         self.steps_beyond_done = None
+        self._steps = 0
         return np.array(self.state)
 
     def render(self, mode='human'):
