@@ -24,18 +24,20 @@ class Conv_Q(nn.Module):
 		return self.l2(q)
 
 
+# This is a HUGE network, required for BCQ and offline RL. Let's reduce it to 256x256 and see how it goes
+
 # Used for Box2D / Toy problems
 class FC_Q(nn.Module):
 	def __init__(self, state_dim, num_actions):
 		super(FC_Q, self).__init__()
 		self.l1 = nn.Linear(state_dim, 256)
-		self.l2 = nn.Linear(256, 256)
+		# self.l2 = nn.Linear(256, 256)
 		self.l3 = nn.Linear(256, num_actions)
 
 
 	def forward(self, state):
 		q = F.relu(self.l1(state))
-		q = F.relu(self.l2(q))
+		# q = F.relu(self.l2(q))
 		return self.l3(q)
 
 

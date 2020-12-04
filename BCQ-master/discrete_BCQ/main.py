@@ -51,8 +51,8 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	for t in range(int(args.max_timesteps)):
 
 		episode_timesteps += 1
-		if episode_num % 50 == 0:
-			env.render()
+		# if episode_num % 50 == 0:
+		# 	env.render()
 
 		# If generating the buffer, episode is low noise with p=low_noise_p.
 		# If policy is low noise, we take random actions with p=eval_eps.
@@ -229,25 +229,25 @@ if __name__ == "__main__":
 
 	regular_parameters = {
 		# Exploration
-		"start_timesteps": 200,
-		"initial_eps": 1,
-		"end_eps": 0.05,
-		"eps_decay_period": 0.002,
+		"start_timesteps": 10000,  # execute some episodes with initial random actions and not with epsilon greedy policy. This helps a lot with exploration and faster learning
+		"initial_eps": 1,          # initial epsilon in epsilon greedy policy
+		"end_eps": 0.05,           # final epsilon in epsilon greedy policy 
+		"eps_decay_period": 0.002, # how fast epsilon changes in iterations
 		# Evaluation
-		"eval_freq": 2000,
-		"eval_eps": 1e-3,
+		"eval_freq": 10000,        # every eval_freq steps we run the policy with epsilon = 0 to see how good it is without exploration (this is how we would apply it in the real world" 
+		"eval_eps": 0.0,           # no exploration during evaluation (a.k.a real world execution)
 		# Learning
 		"discount": 0.95,
-		"buffer_size": 256,
-		"batch_size": 120,
+		"buffer_size": 500000,     # how many samples to keep in the DQN replay buffer. For CartPole, keep everything
+		"batch_size": 32,          # mini-batch size. 32 for DQN is a reasonable choice (based on MANY experimental observations in several different environments
 		"optimizer": "Adam",
 		"optimizer_parameters": {
-			"lr": 1e-3
+			"lr": 3e-4
 		},
 		"train_freq": 1,
 		"polyak_target_update": True,
-		"target_update_freq": 5, # NN Sync
-		"tau": 0.005
+		"target_update_freq": 1,  # how often we update the parameters of the target network. If we use polyak averaging, for CartPole we can update the parameters in every iteration
+		"tau": 0.005              # how the evaluation network and target network weights are mixed. I have never seen any other value ere.
 	}
 
 	# Load parameters
@@ -255,7 +255,7 @@ if __name__ == "__main__":
 	parser.add_argument("--env", default="CartPole-v0")     # OpenAI gym environment name
 	parser.add_argument("--seed", default=0, type=int)             # Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--buffer_name", default="Default")        # Prepends name to filename
-	parser.add_argument("--max_timesteps", default=1e5, type=int)  # Max time steps to run environment or train for
+	parser.add_argument("--max_timesteps", default=5e4, type=int)  # Max time steps to run environment or train for
 	parser.add_argument("--BCQ_threshold", default=0.3, type=float)# Threshold hyper-parameter for BCQ
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode

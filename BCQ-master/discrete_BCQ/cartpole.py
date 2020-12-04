@@ -95,7 +95,7 @@ class CartPoleEnv(gym.Env):
 
         self.steps_beyond_done = None
 
-        self._max_episode_steps = 200
+        self._max_episode_steps = 2000
         self._steps = 0
 
     def seed(self, seed=None):
@@ -137,7 +137,7 @@ class CartPoleEnv(gym.Env):
             or x > self.x_threshold
             or theta < -self.theta_threshold_radians
             or theta > self.theta_threshold_radians
-            or self._steps >= 200
+            or self._steps >= self._max_episode_steps  # don't change this value in two places
         )
 
         if not done:
