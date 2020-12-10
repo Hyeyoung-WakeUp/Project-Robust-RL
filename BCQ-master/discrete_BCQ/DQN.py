@@ -101,7 +101,7 @@ class DQN(object):
 				chosen_action =q_array_given_state.argmax(1)
 				return int(chosen_action), float(torch.max(q_array_given_state))
 		else:
-			return np.random.randint(self.num_actions)
+			return np.random.randint(self.num_actions), None
 
 
 	def train(self, replay_buffer):

@@ -100,7 +100,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 			
 		if done:
 			# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
-			print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
+			print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f} low_noise : {low_noise_ep} ")
 			# Reset environment
 			state, done = env.reset(), False
 			state = np.array([state[2],state[3]]) # 2dim
@@ -128,7 +128,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	env.close()
 
 	res = pd.DataFrame.from_dict(result, "index")
-	res.to_csv("cartpole_200_round2.csv")
+	res.to_csv("cartpole_200.csv")
 
 
 
@@ -193,9 +193,8 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 			state = np.array([state[2],state[3]]) # 2dim
 			avg_reward += reward
 
-	avg_reward /= eval_episodes  # need to be modified , I think.
-	# Question : how many episode should be evaluated?
-
+	avg_reward /= eval_episodes  
+	
 	print("---------------------------------------")
 	print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
 	print("---------------------------------------")
