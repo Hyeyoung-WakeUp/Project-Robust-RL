@@ -9,3 +9,4 @@ rl-an-introduction/
 *.pth
 .DS_Store
 robustRL.py
+.DS_Store

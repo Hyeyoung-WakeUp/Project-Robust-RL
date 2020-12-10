@@ -97,7 +97,9 @@ class DQN(object):
 		if np.random.uniform(0,1) > eps:
 			with torch.no_grad():
 				state = torch.FloatTensor(state).reshape(self.state_shape).to(self.device)
-				return int(self.Q(state).argmax(1))
+				q_array_given_state = self.Q(state)
+				chosen_action =q_array_given_state.argmax(1)
+				return int(chosen_action), float(torch.max(q_array_given_state))
 		else:
 			return np.random.randint(self.num_actions)
 
@@ -126,9 +128,7 @@ class DQN(object):
 		self.iterations += 1
 		self.maybe_update_target()
 
-		return q_value
-
-
+	
 	def polyak_target_update(self):
 		for param, target_param in zip(self.Q.parameters(), self.Q_target.parameters()):
 		   target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)

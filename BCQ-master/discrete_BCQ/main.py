@@ -64,13 +64,15 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 			if not low_noise_ep and np.random.uniform(0,1) < args.rand_action_p - parameters["eval_eps"]:
 				action = env.action_space.sample()
 			else:
-				action = policy.select_action(state, eval=True) # Shrink the state Dim : state -> [state[2],state[3]]
+				action, Q_Value = policy.select_action(state, eval=True) # Shrink the state Dim : state -> [state[2],state[3]]
+				result[i] = {"Episode": episode_num, "Action": action, "Pole_Angle": state[0] , "Pole_Angular_Velocity": state[1], "Q_Value" : Q_Value}
+				i += 1
 
 		if args.train_behavioral:
 			if t < parameters["start_timesteps"]:
 				action = env.action_space.sample()
 			else:
-				action = policy.select_action(state)
+				action, _ = policy.select_action(state)
 
 		# Perform action and log results
 		next_state, reward, done, info = env.step(action)
@@ -88,18 +90,14 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 			
 		# Store data in replay buffer
 		replay_buffer.add(state, action, next_state, reward, done_float, done, episode_start)
-		current_state = state
 		state = copy.copy(next_state)
 		episode_start = False
 
 		# Train agent after collecting sufficient data
 		if args.train_behavioral and t >= parameters["start_timesteps"] and (t+1) % parameters["train_freq"] == 0:
-			q = policy.train(replay_buffer)
+			policy.train(replay_buffer)
 
-			result[i] = {"Episode": episode_num, "Action": action, "Pole_Angle":current_state[0] , "Pole_Angular_Velocity":current_state[1] ,"Q_Value":q }
-			i += 1
-		
-
+			
 		if done:
 			# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
 			print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
@@ -130,7 +128,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	env.close()
 
 	res = pd.DataFrame.from_dict(result, "index")
-	res.to_csv("cartpole_200.csv")
+	res.to_csv("cartpole_200_round2.csv")
 
 
 
@@ -190,7 +188,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 		state, done = eval_env.reset(), False
 		state = np.array([state[2],state[3]]) # 2dim
 		while not done:
-			action = policy.select_action(np.array(state), eval=True)
+			action, _ = policy.select_action(np.array(state), eval=True)
 			state, reward, done, _ = eval_env.step(action)
 			state = np.array([state[2],state[3]]) # 2dim
 			avg_reward += reward
@@ -272,8 +270,8 @@ if __name__ == "__main__":
 	parser.add_argument("--BCQ_threshold", default=0.3, type=float)# Threshold hyper-parameter for BCQ
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
-	parser.add_argument("--train_behavioral", action="store_false") # If true, train behavioral policy
-	parser.add_argument("--generate_buffer", action="store_true")  # If true, generate buffer
+	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy
+	parser.add_argument("--generate_buffer", action="store_false")  # If true, generate buffer
 	args = parser.parse_args()
 	
 	print("---------------------------------------")	
