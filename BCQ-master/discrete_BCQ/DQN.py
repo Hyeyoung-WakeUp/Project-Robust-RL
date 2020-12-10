@@ -108,7 +108,8 @@ class DQN(object):
 
 		# Compute the target Q value
 		with torch.no_grad():
-			target_Q = reward + done * self.discount * self.Q_target(next_state).max(1, keepdim=True)[0]
+			q_value = self.Q_target(next_state).max(1, keepdim=True)[0]
+			target_Q = reward + done * self.discount * q_value
 
 		# Get current Q estimate
 		current_Q = self.Q(state).gather(1, action)
@@ -124,6 +125,8 @@ class DQN(object):
 		# Update target network by polyak or full copy every X iterations.
 		self.iterations += 1
 		self.maybe_update_target()
+
+		return q_value
 
 
 	def polyak_target_update(self):

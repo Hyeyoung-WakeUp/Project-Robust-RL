@@ -4,6 +4,7 @@ import importlib
 import json
 import os
 
+import pandas as pd
 import numpy as np
 import torch
 
@@ -38,6 +39,8 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	if args.generate_buffer: policy.load(f"./models/behavioral_{setting}")
 	
 	evaluations = []
+	result = {}  # extract data from traning
+	i = 0
 
 	state, done = env.reset(), False
 	state = np.array([state[2],state[3]]) # 2dim
@@ -74,6 +77,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 		next_state = np.array([next_state[2],next_state[3]]) # 2dim
 		episode_reward += reward
 
+
 		# Only consider "done" if episode terminates due to failure condition
 		done_float = float(done) if episode_timesteps < env._max_episode_steps else 0
 
@@ -84,12 +88,17 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 			
 		# Store data in replay buffer
 		replay_buffer.add(state, action, next_state, reward, done_float, done, episode_start)
+		current_state = state
 		state = copy.copy(next_state)
 		episode_start = False
 
 		# Train agent after collecting sufficient data
 		if args.train_behavioral and t >= parameters["start_timesteps"] and (t+1) % parameters["train_freq"] == 0:
-			policy.train(replay_buffer)
+			q = policy.train(replay_buffer)
+
+			result[i] = {"Episode": episode_num, "Action": action, "Pole_Angle":current_state[0] , "Pole_Angular_Velocity":current_state[1] ,"Q_Value":q }
+			i += 1
+		
 
 		if done:
 			# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
@@ -119,6 +128,10 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 		np.save(f"./results/buffer_performance_{setting}", evaluations)
 		replay_buffer.save(f"./buffers/{buffer_name}")
 	env.close()
+
+	res = pd.DataFrame.from_dict(result, "index")
+	res.to_csv("cartpole_200.csv")
+
 
 
 # Trains BCQ offline
