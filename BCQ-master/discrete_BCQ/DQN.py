@@ -99,7 +99,7 @@ class DQN(object):
 				state = torch.FloatTensor(state).reshape(self.state_shape).to(self.device)
 				q_array_given_state = self.Q(state)
 				chosen_action =q_array_given_state.argmax(1)
-				return int(chosen_action), float(torch.max(q_array_given_state))
+				return int(chosen_action), q_array_given_state
 		else:
 			return np.random.randint(self.num_actions), None
 
