@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import numpy as np
 import torch
-
+ 
 import discrete_BCQ
 import DQN
 import utils
@@ -36,7 +36,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 		parameters["eval_eps"],
 	)
 
-	if args.generate_buffer: policy.load(f"./models/behavioral_{setting}")
+	if args.generate_buffer or args.grid: policy.load(f"./models/behavioral_{setting}")
 	
 	evaluations = []
 	result = {}  # extract data from traning
@@ -49,6 +49,24 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	episode_timesteps = 0
 	episode_num = 0
 	low_noise_ep = np.random.uniform(0,1) < args.low_noise_p
+
+	# For Visualisation (just like "generate Buffer" but without any random noises)
+	if args.grid:
+		X = [- env.observation_space.high[2], env.observation_space.high[2]]
+		j = 0		
+		for x in np.linspace(min(X), max(X), 100):
+			for y in np.linspace(-4, 4, 100):
+				state = np.array([x,y])
+				action, q_value_array = policy.select_action(state, eval=True) # Shrink the state Dim : state -> [state[2],state[3]]
+				result[j] = {"Action": action, "Pole_Angle": state[0] , "Pole_Angular_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item()}
+				j += 1
+
+		res = pd.DataFrame.from_dict(result, "index")
+		res.to_csv("cart_t200_std.csv")
+		
+		return None		
+
+
 
 	# Interact with the environment for max_timesteps
 	for t in range(int(args.max_timesteps)):
@@ -64,8 +82,8 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 			if not low_noise_ep and np.random.uniform(0,1) < args.rand_action_p - parameters["eval_eps"]:
 				action = env.action_space.sample()
 			else:
-				action, Q_Value = policy.select_action(state, eval=True) # Shrink the state Dim : state -> [state[2],state[3]]
-				result[i] = {"Episode": episode_num, "Action": action, "Pole_Angle": state[0] , "Pole_Angular_Velocity": state[1], "Q_Value" : Q_Value}
+				action, q_value_array = policy.select_action(state, eval=True) # Shrink the state Dim : state -> [state[2],state[3]]
+				result[i] = {"Episode": episode_num, "Action": action, "Pole_Angle": state[0] , "Pole_Angular_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item()}
 				i += 1
 
 		if args.train_behavioral:
@@ -269,8 +287,9 @@ if __name__ == "__main__":
 	parser.add_argument("--BCQ_threshold", default=0.3, type=float)# Threshold hyper-parameter for BCQ
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
-	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy
-	parser.add_argument("--generate_buffer", action="store_false")  # If true, generate buffer
+	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy (If you read )
+	parser.add_argument("--generate_buffer", action="store_true")  # If true, generate buffer
+	parser.add_argument("--grid", action="store_false") # For Visualisation CartPole : If true, generate grid file ascsv form
 	args = parser.parse_args()
 	
 	print("---------------------------------------")	
@@ -311,7 +330,7 @@ if __name__ == "__main__":
 	# Initialize buffer
 	replay_buffer = utils.ReplayBuffer(state_dim, is_atari, atari_preprocessing, parameters["batch_size"], parameters["buffer_size"], device)
 
-	if args.train_behavioral or args.generate_buffer:
+	if args.train_behavioral or args.generate_buffer or args.grid:
 		interact_with_environment(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters)
 	else:
 		train_BCQ(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters)
