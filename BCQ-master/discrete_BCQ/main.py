@@ -50,7 +50,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	episode_num = 0
 	low_noise_ep = np.random.uniform(0,1) < args.low_noise_p
 
-	# For Visualisation (just like "generate Buffer" but without any random noises)
+	# For Policy Visualisation (just like "generate Buffer" but without any random noises) : 
 	if args.grid:
 		X = [- env.observation_space.high[2], env.observation_space.high[2]]
 		j = 0		
@@ -62,7 +62,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 				j += 1
 
 		res = pd.DataFrame.from_dict(result, "index")
-		res.to_csv("cart_t200_std.csv")
+		res.to_csv("cart_t10000_longerPole.csv")
 		
 		return None		
 
@@ -93,7 +93,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 				action, _ = policy.select_action(state)
 
 		# Perform action and log results
-		next_state, reward, done, info = env.step(action)
+		next_state, reward, done, info = env.step(action)  # interact with env. this is the difference between my grid function and generate buffer. 
 		next_state = np.array([next_state[2],next_state[3]]) # 2dim
 		episode_reward += reward
 
@@ -146,7 +146,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	env.close()
 
 	res = pd.DataFrame.from_dict(result, "index")
-	res.to_csv("cartpole_200.csv")
+	res.to_csv("cart.csv")
 
 
 
@@ -289,7 +289,7 @@ if __name__ == "__main__":
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
 	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy (If you read )
 	parser.add_argument("--generate_buffer", action="store_true")  # If true, generate buffer
-	parser.add_argument("--grid", action="store_false") # For Visualisation CartPole : If true, generate grid file ascsv form
+	parser.add_argument("--grid", action="store_false") # For Visualisation CartPole : If true, generate grid file as csv form 
 	args = parser.parse_args()
 	
 	print("---------------------------------------")	
