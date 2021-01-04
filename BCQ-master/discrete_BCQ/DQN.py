@@ -105,6 +105,8 @@ class DQN(object):
 			return np.random.randint(self.num_actions), None
 
 	# Local Lipschitzness Function
+
+	'''
 	def local_lip(self, x, xp, action, top_norm, btm_norm, reduction='mean'):
 		down = x - xp
 		top = self.Q(x)[action]  - self.Q(xp)[action] 
@@ -116,11 +118,13 @@ class DQN(object):
 			return torch.sum(ret)
 		else:
 			raise ValueError(f"Not supported reduction: {reduction}")
+	'''
 
 
 	def train(self, replay_buffer, epsilon=0.005, perturb_steps=10, beta=1, step_size=0.003):
 		# Sample replay buffer
 		state, action, next_state, reward, done = replay_buffer.sample()
+		criterion_kl = nn.KLDivLoss(reduction='sum')
 
 		# Compute the target Q value
 		with torch.no_grad():
@@ -144,7 +148,8 @@ class DQN(object):
 			for _ in range(perturb_steps):
 				x_adv.requires_grad_(True)
 				with torch.enable_grad():
-					loss = self.local_lip(stateSingle, x_adv, actionSingle , 1, np.inf)
+					loss = criterion_kl(F.log_softmax(self.Q(x_adv)[action]), F.softmax(self.Q(stateSingle)[action]))
+					#loss = self.local_lip(stateSingle, x_adv, actionSingle , 1, np.inf)
 				grad = torch.autograd.grad(loss, [x_adv])[0]
 				# renorming gradient
 				eta = step_size * torch.sign(grad.detach())
@@ -153,7 +158,7 @@ class DQN(object):
 				x_adv[0] = torch.clamp(x_adv[0], -0.418, 0.418)
 			
 			x_adv = Variable(x_adv, requires_grad=False)
-			total_loss += self.local_lip(stateSingle, x_adv, actionSingle, 1, np.inf)
+			total_loss += criterion_kl(F.log_softmax(self.Q(x_adv)[action]), F.softmax(self.Q(stateSingle)[action]))
 	
 		# calculate robust loss
 		loss_natural = F.smooth_l1_loss(current_Q, target_Q)
@@ -161,6 +166,8 @@ class DQN(object):
 		
 		# Compute Q loss
 		Q_loss = loss_natural + beta * loss_robust
+
+		# Apply Local Lipschitzness End
 
 		# Optimize the Q
 		self.Q_optimizer.zero_grad()
