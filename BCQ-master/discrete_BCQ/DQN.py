@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 
 # Used for Atari
@@ -103,8 +104,21 @@ class DQN(object):
 		else:
 			return np.random.randint(self.num_actions), None
 
+	# Local Lipschitzness Function
+	def local_lip(self, x, xp, action, top_norm, btm_norm, reduction='mean'):
+		down = x - xp
+		top = self.Q(x)[action]  - self.Q(xp)[action] 
+		ret = torch.norm(top, p=top_norm) / torch.norm(down + 1e-6, p=btm_norm)
 
-	def train(self, replay_buffer):
+		if reduction == 'mean':
+			return torch.mean(ret)
+		elif reduction == 'sum':
+			return torch.sum(ret)
+		else:
+			raise ValueError(f"Not supported reduction: {reduction}")
+
+
+	def train(self, replay_buffer, epsilon=0.005, perturb_steps=10, beta=1, step_size=0.003):
 		# Sample replay buffer
 		state, action, next_state, reward, done = replay_buffer.sample()
 
@@ -114,10 +128,39 @@ class DQN(object):
 			target_Q = reward + done * self.discount * q_value
 
 		# Get current Q estimate
-		current_Q = self.Q(state).gather(1, action)
+		current_Q = self.Q(state).gather(1, action) 
 
+		# Apply Local Lipschitzness start:
+		batch_size = len(current_Q)
+
+		total_loss = 0
+
+		for i in range(batch_size):
+			stateSingle = state[i]
+			actionSingle = action[i]
+			x_adv = stateSingle.detach() + 0.001 * torch.randn(stateSingle.shape).to(self.device)
+
+
+			for _ in range(perturb_steps):
+				x_adv.requires_grad_(True)
+				with torch.enable_grad():
+					loss = self.local_lip(stateSingle, x_adv, actionSingle , 1, np.inf)
+				grad = torch.autograd.grad(loss, [x_adv])[0]
+				# renorming gradient
+				eta = step_size * torch.sign(grad.detach())
+				x_adv = x_adv.data.detach() + eta.detach()
+				x_adv = torch.min(torch.max(x_adv, stateSingle - epsilon), stateSingle + epsilon)
+				x_adv[0] = torch.clamp(x_adv[0], -0.418, 0.418)
+			
+			x_adv = Variable(x_adv, requires_grad=False)
+			total_loss += self.local_lip(stateSingle, x_adv, actionSingle, 1, np.inf)
+	
+		# calculate robust loss
+		loss_natural = F.smooth_l1_loss(current_Q, target_Q)
+		loss_robust = total_loss / batch_size
+		
 		# Compute Q loss
-		Q_loss = F.smooth_l1_loss(current_Q, target_Q)
+		Q_loss = loss_natural + beta * loss_robust
 
 		# Optimize the Q
 		self.Q_optimizer.zero_grad()
