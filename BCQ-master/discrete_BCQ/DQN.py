@@ -121,7 +121,7 @@ class DQN(object):
 	'''
 
 
-	def train(self, replay_buffer, epsilon=0.005, perturb_steps=10, beta=1, step_size=0.003):
+	def train(self, replay_buffer, epsilon=0.03, perturb_steps=10, beta=1, step_size=0.003):
 		# Sample replay buffer
 		state, action, next_state, reward, done = replay_buffer.sample()
 		criterion_kl = nn.KLDivLoss(reduction='sum')
@@ -148,7 +148,7 @@ class DQN(object):
 			for _ in range(perturb_steps):
 				x_adv.requires_grad_(True)
 				with torch.enable_grad():
-					loss = criterion_kl(F.log_softmax(self.Q(x_adv)[action]), F.softmax(self.Q(stateSingle)[action]))
+					loss = criterion_kl(F.log_softmax(self.Q(x_adv)), F.softmax(self.Q(stateSingle)))
 					#loss = self.local_lip(stateSingle, x_adv, actionSingle , 1, np.inf)
 				grad = torch.autograd.grad(loss, [x_adv])[0]
 				# renorming gradient
@@ -158,7 +158,7 @@ class DQN(object):
 				x_adv[0] = torch.clamp(x_adv[0], -0.418, 0.418)
 			
 			x_adv = Variable(x_adv, requires_grad=False)
-			total_loss += criterion_kl(F.log_softmax(self.Q(x_adv)[action]), F.softmax(self.Q(stateSingle)[action]))
+			total_loss += criterion_kl(F.log_softmax(self.Q(x_adv)), F.softmax(self.Q(stateSingle)))
 	
 		# calculate robust loss
 		loss_natural = F.smooth_l1_loss(current_Q, target_Q)
