@@ -95,7 +95,7 @@ class CartPoleEnv(gym.Env):
 
         self.steps_beyond_done = None
 
-        self._max_episode_steps = 200
+        self._max_episode_steps = 10000
         self._steps = 0
 
     def seed(self, seed=None):

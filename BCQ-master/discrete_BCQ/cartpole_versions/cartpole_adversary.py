@@ -87,11 +87,15 @@ class CartPoleEnvAdversarial(gym.Env):
 
         self.steps_beyond_done = None
 
+        self._max_episode_steps = 10000
+        self._steps = 0
+
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
     def step(self, action):
+        self._steps += 1
         # print("ACTION TYPE: " + str(type(action)))
         # action 0: left, action 1: right
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
@@ -129,11 +133,12 @@ class CartPoleEnvAdversarial(gym.Env):
             x  = x + self.tau * x_dot
             theta_dot = theta_dot + self.tau * thetaacc
             theta = theta + self.tau * theta_dot
-        self.state = (x,x_dot,theta,theta_dot)
+        self.state = (0,x_dot,theta,theta_dot)
         done =  x < -self.x_threshold \
                 or x > self.x_threshold \
                 or theta < -self.theta_threshold_radians \
-                or theta > self.theta_threshold_radians
+                or theta > self.theta_threshold_radians \
+			    or self._steps >= self._max_episode_steps
         done = bool(done)
 
         if not done:
@@ -153,6 +158,7 @@ class CartPoleEnvAdversarial(gym.Env):
     def reset(self):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
         self.steps_beyond_done = None
+        self._steps = 0
         return np.array(self.state)
 
     def render(self, mode='human'):

@@ -84,12 +84,16 @@ class CartPoleEnvNoise(gym.Env):
 		self.state = None
 		
 		self.steps_beyond_done = None
+
+		self._max_episode_steps = 10000
+		self._steps = 0
 	
 	def seed(self, seed=None):
 		self.np_random, seed = seeding.np_random(seed)
 		return [seed]
 	
 	def step(self, action):
+		self._steps += 1
 		# print("ACTION TYPE: " + str(type(action)))
 		assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
 		state = self.state
@@ -119,13 +123,14 @@ class CartPoleEnvNoise(gym.Env):
 		# print("Orig state: " + str((x, x_dot, theta, theta_dot)))
 		noise = [0.0001, 0.0001, 0.0001, 0.0001]
 		s = np.sqrt(noise) * np.random.randn(4)
-		self.state = (x + s[0], x_dot + s[1], theta + s[2], theta_dot + s[3])
+		self.state = (0, x_dot + s[1], theta + s[2], theta_dot + s[3])
 		# print("Final state: " + str(self.state))
 		
 		done = x < -self.x_threshold \
 		       or x > self.x_threshold \
 		       or theta < -self.theta_threshold_radians \
-		       or theta > self.theta_threshold_radians
+		       or theta > self.theta_threshold_radians \
+			   or self._steps >= self._max_episode_steps  # don't change this value in two places
 		done = bool(done)
 		
 		if not done:
@@ -146,6 +151,7 @@ class CartPoleEnvNoise(gym.Env):
 	def reset(self):
 		self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
 		self.steps_beyond_done = None
+		self._steps = 0
 		return np.array(self.state)
 	
 	def render(self, mode='human'):

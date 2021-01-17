@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+import constants
 
 
 # Used for Atari
@@ -121,7 +122,7 @@ class DQN(object):
 	'''
 
 
-	def train(self, replay_buffer, epsilon=0.03, perturb_steps=10, beta=1, step_size=0.003):
+	def train(self, replay_buffer, epsilon=constants.EPSILON, perturb_steps=10, beta=constants.BETA, step_size=0.003):
 		# Sample replay buffer
 		state, action, next_state, reward, done = replay_buffer.sample()
 		criterion_kl = nn.KLDivLoss(reduction='sum')

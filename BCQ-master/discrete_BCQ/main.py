@@ -11,11 +11,12 @@ import torch
 import discrete_BCQ
 import DQN
 import utils
+import constants
 
 
 def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters):
 	# For saving files
-	setting = f"{args.env}_{args.seed}"
+	setting = f"{args.env}{constants.ENV}_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.POLE_SIZE}_{constants.BETA}_{constants.EPSILON}"
 	buffer_name = f"{args.buffer_name}_{setting}"
 
 	# Initialize and load policy
@@ -62,11 +63,9 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 				j += 1
 
 		res = pd.DataFrame.from_dict(result, "index")
-		res.to_csv("cart_t10000_longerPole.csv")
+		res.to_csv(f"{setting}.csv")
 		
 		return None		
-
-
 
 	# Interact with the environment for max_timesteps
 	for t in range(int(args.max_timesteps)):
@@ -145,8 +144,8 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 		replay_buffer.save(f"./buffers/{buffer_name}")
 	env.close()
 
-	res = pd.DataFrame.from_dict(result, "index")
-	res.to_csv("cart.csv")
+	#res = pd.DataFrame.from_dict(result, "index")
+	#res.to_csv("cart.csv")
 
 
 
@@ -287,9 +286,9 @@ if __name__ == "__main__":
 	parser.add_argument("--BCQ_threshold", default=0.3, type=float)# Threshold hyper-parameter for BCQ
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
-	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy (If you read )
+	parser.add_argument("--train_behavioral", action="store_false") # If true, train behavioral policy (If you read )
 	parser.add_argument("--generate_buffer", action="store_true")  # If true, generate buffer
-	parser.add_argument("--grid", action="store_false") # For Visualisation CartPole : If true, generate grid file as csv form 
+	parser.add_argument("--grid", action="store_true") # For Visualisation CartPole : If true, generate grid file as csv form 
 	args = parser.parse_args()
 	
 	print("---------------------------------------")	
@@ -316,6 +315,8 @@ if __name__ == "__main__":
 
 	# Make env and determine properties
 	env, is_atari, state_dim, num_actions = utils.make_env(args.env, atari_preprocessing)
+	env.length = constants.POLE_SIZE
+	env._max_episode_steps = constants.MAX_EPISODE_STEPS
 	
 	# Use 2 state dimensions, e.g. Pole Angle, Pole Angular 
 	state_dim = 2

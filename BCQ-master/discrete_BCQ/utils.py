@@ -2,7 +2,12 @@ import cv2
 import gym
 import numpy as np
 import torch
-from cartpole import CartPoleEnv
+from cartpole_versions.cartpole import CartPoleEnv
+from cartpole_versions import cartpole_adversary
+from cartpole_versions import cartpole_DR
+from cartpole_versions import cartpole_noise
+
+import constants
 
 def ReplayBuffer(state_dim, is_atari, atari_preprocessing, batch_size, buffer_size, device):
 	if is_atari: 
@@ -299,7 +304,14 @@ class AtariPreprocessing(object):
 
 # Create environment, add wrapper if necessary and create env_properties
 def make_env(env_name, atari_preprocessing):
-	env = CartPoleEnv()
+	if constants.ENV == "adversary" :
+		env = cartpole_adversary.CartPoleEnvAdversarial()
+	elif constants.ENV == "DR":
+		env = cartpole_DR.CartPoleEnvDR()
+	elif constants.ENV == "noise":
+		env = cartpole_noise.CartPoleEnvNoise()
+	else:
+		env = CartPoleEnv()
 	
 	is_atari = gym.envs.registry.spec(env_name).entry_point == 'gym.envs.atari:AtariEnv'
 	env = AtariPreprocessing(env, **atari_preprocessing) if is_atari else env

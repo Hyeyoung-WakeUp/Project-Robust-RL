@@ -85,6 +85,9 @@ class CartPoleEnvDR(gym.Env):
                 self.state = None
                 
                 self.steps_beyond_done = None
+
+                self._max_episode_steps = 10000
+                self._steps = 0
                 
                 # For DR:
                 self.masscart_DR = [0.5, 1.0, 1.5]
@@ -93,6 +96,7 @@ class CartPoleEnvDR(gym.Env):
                 self.fixed_DR = False
                 
         def reset(self):
+                self._steps = 0
                         # For DR:
                 if(self.fixed_DR == False):
                         self.masscart = np.random.choice(self.masscart_DR)
@@ -126,6 +130,7 @@ class CartPoleEnvDR(gym.Env):
                 return [seed]
         
         def step(self, action):
+                self._steps += 1
                 assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
                 state = self.state
                 x, x_dot, theta, theta_dot = state
@@ -146,11 +151,12 @@ class CartPoleEnvDR(gym.Env):
                         x = x + self.tau * x_dot
                         theta_dot = theta_dot + self.tau * thetaacc
                         theta = theta + self.tau * theta_dot
-                self.state = (x, x_dot, theta, theta_dot)
+                self.state = (0, x_dot, theta, theta_dot)
                 done = x < -self.x_threshold \
-                       or x > self.x_threshold \
-                       or theta < -self.theta_threshold_radians \
-                       or theta > self.theta_threshold_radians
+                        or x > self.x_threshold \
+                        or theta < -self.theta_threshold_radians \
+                        or theta > self.theta_threshold_radians \
+		        or self._steps >= self._max_episode_steps
                 done = bool(done)
                 
                 if not done:
