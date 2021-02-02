@@ -13,10 +13,15 @@ import DQN
 import utils
 import constants
 
+from core.rl import *
+from core.dt import *
+from core.log  import *
+
 
 def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters):
 	# For saving files
 	setting = f"{args.env}{constants.ENV}_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.POLE_SIZE}_{constants.BETA}_{constants.EPSILON}"
+	settingLoad = f"{args.env}normal_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.POLE_SIZE}_{constants.BETA}_{constants.EPSILON}"
 	buffer_name = f"{args.buffer_name}_{setting}"
 
 	# Initialize and load policy
@@ -37,7 +42,11 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 		parameters["eval_eps"],
 	)
 
-	if args.generate_buffer or args.grid: policy.load(f"./models/behavioral_{setting}")
+	if args.generate_buffer or args.grid or args.viper: policy.load(f"./models/behavioral_{settingLoad}")
+
+	if args.viper:
+		learn_dt(policy, env, setting)
+		return None
 	
 	evaluations = []
 	result = {}  # extract data from traning
@@ -49,6 +58,8 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	episode_reward = 0
 	episode_timesteps = 0
 	episode_num = 0
+	total_reward = 0
+	
 	low_noise_ep = np.random.uniform(0,1) < args.low_noise_p
 
 	# For Policy Visualisation (just like "generate Buffer" but without any random noises) : 
@@ -118,10 +129,13 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 		if done:
 			# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
 			print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f} low_noise : {low_noise_ep} ")
+			result[i] = {"Total T": t+1, "Episode": episode_num+1, "Reward": episode_reward}
+			i += 1
 			# Reset environment
 			state, done = env.reset(), False
 			state = np.array([state[2],state[3]]) # 2dim
 			episode_start = True
+			total_reward += episode_reward
 			episode_reward = 0
 			episode_timesteps = 0
 			episode_num += 1
@@ -144,8 +158,9 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 		replay_buffer.save(f"./buffers/{buffer_name}")
 	env.close()
 
-	#res = pd.DataFrame.from_dict(result, "index")
-	#res.to_csv("cart.csv")
+	res = pd.DataFrame.from_dict(result, "index")
+	res.to_csv(f"consoleOutput_{setting}_play.csv")
+	print(f"Average reward: {1.0 * total_reward / (episode_num + 1)}")
 
 
 
@@ -286,9 +301,10 @@ if __name__ == "__main__":
 	parser.add_argument("--BCQ_threshold", default=0.3, type=float)# Threshold hyper-parameter for BCQ
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
-	parser.add_argument("--train_behavioral", action="store_false") # If true, train behavioral policy (If you read )
+	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy (If you read )
 	parser.add_argument("--generate_buffer", action="store_true")  # If true, generate buffer
 	parser.add_argument("--grid", action="store_true") # For Visualisation CartPole : If true, generate grid file as csv form 
+	parser.add_argument("--viper", action="store_false") # For Viper Algorithm
 	args = parser.parse_args()
 	
 	print("---------------------------------------")	
@@ -331,7 +347,78 @@ if __name__ == "__main__":
 	# Initialize buffer
 	replay_buffer = utils.ReplayBuffer(state_dim, is_atari, atari_preprocessing, parameters["batch_size"], parameters["buffer_size"], device)
 
-	if args.train_behavioral or args.generate_buffer or args.grid:
+	if args.train_behavioral or args.generate_buffer or args.grid or args.viper:
 		interact_with_environment(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters)
 	else:
 		train_BCQ(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters)
+
+
+# Insert Viper Algo 
+# http://www.apache.org/licenses/LICENSE-2.0
+
+def learn_dt(policy, env, setting):
+    # Parameters
+    log_fname = f"../{setting}_dt.log"
+    max_depth = 12
+    n_batch_rollouts = 10
+    max_samples = 200000
+    max_iters = 80
+    train_frac = 0.8
+    is_reweight = True
+    n_test_rollouts = 50
+    save_dirname = f"../tmp/{setting}"
+    save_fname = f"dt_policy_{setting}.pk"
+    save_viz_fname = f"dt_policy_{setting}.dot"
+    is_train = True
+    
+    # Logging
+    set_file(log_fname)
+    
+    # Data structures
+    teacher = policy
+    student = DTPolicy(max_depth)
+    state_transformer = env.step
+
+    # Train student
+    if is_train:
+        student = train_dagger(env, teacher, student, state_transformer, max_iters, n_batch_rollouts, max_samples, train_frac, is_reweight, n_test_rollouts)
+        save_dt_policy(student, save_dirname, save_fname)
+        save_dt_policy_viz(student, save_dirname, save_viz_fname)
+    else:
+        student = load_dt_policy(save_dirname, save_fname)
+
+    # Test student
+    rew = test_policy(env, student, state_transformer, n_test_rollouts)
+    log('Final reward: {}'.format(rew), INFO)
+    log('Number of nodes: {}'.format(student.tree.tree_.node_count), INFO)
+
+def bin_acts():
+    # Parameters
+    seq_len = 10
+    n_rollouts = 10
+    log_fname = 'pong_options.log'
+    model_path = 'model-atari-pong-1/saved'
+    
+    # Logging
+    set_file(log_fname)
+    
+    # Data structures
+    env = get_pong_env()
+    teacher = DQNPolicy(env, model_path)
+
+    # Action sequences
+    seqs = get_action_sequences(env, teacher, seq_len, n_rollouts)
+
+    for seq, count in seqs:
+        log('{}: {}'.format(seq, count), INFO)
+
+def print_size():
+    # Parameters
+    dirname = 'results/run9'
+    fname = 'dt_policy.pk'
+
+    # Load decision tree
+    dt = load_dt_policy(dirname, fname)
+
+    # Size
+    print(dt.tree.tree_.node_count)
