@@ -233,6 +233,76 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 	return avg_reward
 
 
+
+# Insert Viper Algo 
+# http://www.apache.org/licenses/LICENSE-2.0
+
+def learn_dt(policy, env, setting):
+    # Parameters
+    log_fname = f"../{setting}_dt.log"
+    max_depth = 12
+    n_batch_rollouts = 10
+    max_samples = 200000
+    max_iters = 80
+    train_frac = 0.8
+    is_reweight = True
+    n_test_rollouts = 50
+    save_dirname = f"../tmp/{setting}"
+    save_fname = f"dt_policy_{setting}.pk"
+    save_viz_fname = f"dt_policy_{setting}.dot"
+    is_train = True
+    
+    # Logging
+    set_file(log_fname)
+    
+    # Data structures
+    teacher = policy
+    student = DTPolicy(max_depth)
+    state_transformer = lambda x: x
+
+    # Train student
+    if is_train:
+        student = train_dagger(env, teacher, student, state_transformer, max_iters, n_batch_rollouts, max_samples, train_frac, is_reweight, n_test_rollouts)
+        save_dt_policy(student, save_dirname, save_fname)
+        save_dt_policy_viz(student, save_dirname, save_viz_fname)
+    else:
+        student = load_dt_policy(save_dirname, save_fname)
+
+    # Test student
+    rew = test_policy(env, student, state_transformer, n_test_rollouts)
+    log('Final reward: {}'.format(rew), INFO)
+    log('Number of nodes: {}'.format(student.tree.tree_.node_count), INFO)
+
+def bin_acts(policy, env, setting):
+    # Parameters
+    seq_len = 10
+    n_rollouts = 10
+    log_fname = f"{setting}_options.log"
+    
+    # Logging
+    set_file(log_fname)
+    
+    # Data structures
+    teacher = policy
+
+    # Action sequences
+    seqs = get_action_sequences(env, teacher, seq_len, n_rollouts)
+
+    for seq, count in seqs:
+        log('{}: {}'.format(seq, count), INFO)
+
+def print_size():
+    # Parameters
+    dirname = 'results/run9'
+    fname = 'dt_policy.pk'
+
+    # Load decision tree
+    dt = load_dt_policy(dirname, fname)
+
+    # Size
+    print(dt.tree.tree_.node_count)
+
+
 if __name__ == "__main__":
 
 	# Atari Specific
@@ -353,72 +423,4 @@ if __name__ == "__main__":
 		train_BCQ(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters)
 
 
-# Insert Viper Algo 
-# http://www.apache.org/licenses/LICENSE-2.0
 
-def learn_dt(policy, env, setting):
-    # Parameters
-    log_fname = f"../{setting}_dt.log"
-    max_depth = 12
-    n_batch_rollouts = 10
-    max_samples = 200000
-    max_iters = 80
-    train_frac = 0.8
-    is_reweight = True
-    n_test_rollouts = 50
-    save_dirname = f"../tmp/{setting}"
-    save_fname = f"dt_policy_{setting}.pk"
-    save_viz_fname = f"dt_policy_{setting}.dot"
-    is_train = True
-    
-    # Logging
-    set_file(log_fname)
-    
-    # Data structures
-    teacher = policy
-    student = DTPolicy(max_depth)
-    state_transformer = env.step
-
-    # Train student
-    if is_train:
-        student = train_dagger(env, teacher, student, state_transformer, max_iters, n_batch_rollouts, max_samples, train_frac, is_reweight, n_test_rollouts)
-        save_dt_policy(student, save_dirname, save_fname)
-        save_dt_policy_viz(student, save_dirname, save_viz_fname)
-    else:
-        student = load_dt_policy(save_dirname, save_fname)
-
-    # Test student
-    rew = test_policy(env, student, state_transformer, n_test_rollouts)
-    log('Final reward: {}'.format(rew), INFO)
-    log('Number of nodes: {}'.format(student.tree.tree_.node_count), INFO)
-
-def bin_acts():
-    # Parameters
-    seq_len = 10
-    n_rollouts = 10
-    log_fname = 'pong_options.log'
-    model_path = 'model-atari-pong-1/saved'
-    
-    # Logging
-    set_file(log_fname)
-    
-    # Data structures
-    env = get_pong_env()
-    teacher = DQNPolicy(env, model_path)
-
-    # Action sequences
-    seqs = get_action_sequences(env, teacher, seq_len, n_rollouts)
-
-    for seq, count in seqs:
-        log('{}: {}'.format(seq, count), INFO)
-
-def print_size():
-    # Parameters
-    dirname = 'results/run9'
-    fname = 'dt_policy.pk'
-
-    # Load decision tree
-    dt = load_dt_policy(dirname, fname)
-
-    # Size
-    print(dt.tree.tree_.node_count)

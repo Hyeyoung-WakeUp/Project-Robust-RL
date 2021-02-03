@@ -18,6 +18,7 @@ from .log import *
 def get_rollout(env, policy, render):
     obs, done = np.array(env.reset()), False
     rollout = []
+    obs = [obs[2], obs[3]]
 
     while not done:
         # Render
@@ -25,10 +26,14 @@ def get_rollout(env, policy, render):
             env.unwrapped.render()
 
         # Action
-        act = policy.predict(np.array([obs]))[0]
+        if type(policy) == TransformerPolicy:
+            act = policy.predict(np.array([obs]))[0]
+        else:
+            act = policy.select_action(obs,True)[0]
 
         # Step
         next_obs, rew, done, info = env.step(act)
+        next_obs = [next_obs[2], next_obs[3]]
 
         # Rollout (s, a, r)
         rollout.append((obs, act, rew))
@@ -140,7 +145,10 @@ def train_dagger(env, teacher, student, state_transformer, max_iters, n_batch_ro
     trace = get_rollouts(env, teacher, False, n_batch_rollouts)
     obss.extend((state_transformer(obs) for obs, _, _ in trace))
     acts.extend((act for _, act, _ in trace))
-    qs.extend(teacher.predict_q(np.array([obs for obs, _, _ in trace])))
+    for obs, _, _ in trace:
+        qs.extend(teacher.select_action(obs,True)[1].numpy())
+
+    #qs.extend(teacher.select_action(np.array([obs for obs, _, _ in trace]), True)[1])
 
     # Step 2: Dagger outer loop
     for i in range(max_iters):
@@ -156,8 +164,11 @@ def train_dagger(env, teacher, student, state_transformer, max_iters, n_batch_ro
         student_obss = [obs for obs, _, _ in student_trace]
         
         # Step 2c: Query the oracle for supervision
-        teacher_qs = teacher.predict_q(student_obss) # at the interface level, order matters, since teacher.predict may run updates
-        teacher_acts = teacher.predict(student_obss)
+        teacher_qs, teacher_acts = [], []
+        for ob in student_obss:
+            result = teacher.select_action(ob, True)
+            teacher_qs.extend(result[1].numpy()) # at the interface level, order matters, since teacher.predict may run updates
+            teacher_acts.append(result[0])
 
         # Step 2d: Add the augmented state-action pairs back to aggregate
         obss.extend((state_transformer(obs) for obs in student_obss))
