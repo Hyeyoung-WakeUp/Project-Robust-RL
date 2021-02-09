@@ -69,7 +69,7 @@ class CartPoleEnvAdversarial(gym.Env):
         self.x_threshold = 2.4
 
         self.adv_noise = 2
-        self.adv_change = 0.2
+        self.adv_change = 0.1
 
         # Angle limit set to 2 * theta_threshold_radians so failing observation is still within bounds
         high = np.array([

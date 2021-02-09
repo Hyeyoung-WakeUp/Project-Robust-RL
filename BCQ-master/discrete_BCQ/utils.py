@@ -6,6 +6,7 @@ from cartpole_versions.cartpole import CartPoleEnv
 from cartpole_versions import cartpole_adversary
 from cartpole_versions import cartpole_DR
 from cartpole_versions import cartpole_noise
+from mountain_env import mountain_car
 
 import constants
 
@@ -304,14 +305,19 @@ class AtariPreprocessing(object):
 
 # Create environment, add wrapper if necessary and create env_properties
 def make_env(env_name, atari_preprocessing):
+	is_cartpole = True
 	if constants.ENV == "adversary" :
 		env = cartpole_adversary.CartPoleEnvAdversarial()
 	elif constants.ENV == "DR":
 		env = cartpole_DR.CartPoleEnvDR()
 	elif constants.ENV == "noise":
 		env = cartpole_noise.CartPoleEnvNoise()
-	else:
+	elif constants.ENV == "normal":
 		env = CartPoleEnv()
+	else:
+		is_cartpole = False
+		env = mountain_car.MountainCarEnv()
+
 	
 	is_atari = gym.envs.registry.spec(env_name).entry_point == 'gym.envs.atari:AtariEnv'
 	env = AtariPreprocessing(env, **atari_preprocessing) if is_atari else env
@@ -325,6 +331,7 @@ def make_env(env_name, atari_preprocessing):
 	return (
 		env,
 		is_atari,
+		is_cartpole,
 		state_dim,
 		env.action_space.n
 	)

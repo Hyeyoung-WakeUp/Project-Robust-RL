@@ -13,20 +13,30 @@ import DQN
 import utils
 import constants
 
-from core.rl import *
-from core.dt import *
-from core.log  import *
+from viper.rl import *
+from viper.dt import *
+from viper.log  import *
 
 
-def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters):
+def interact_with_environment(env, replay_buffer, is_atari, is_cartpole ,num_actions, state_dim, device, args, parameters):
 	# For saving files
-	setting = f"{args.env}{constants.ENV}_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.POLE_SIZE}_{constants.BETA}_{constants.EPSILON}"
-	settingLoad = f"{args.env}normal_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.POLE_SIZE}_{constants.BETA}_{constants.EPSILON}"
-	buffer_name = f"{args.buffer_name}_{setting}"
+	if is_cartpole:
+		setting = f"{args.env}{constants.ENV}_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.POLE_SIZE}_{constants.BETA}_{constants.EPSILON}"
+		settingLoad = f"{args.env}normal_{args.seed}_{constants.MAX_EPISODE_STEPS}_{0.8}_{constants.BETA}_{constants.EPSILON}"
+		#settingLoad = f"{args.env}normal_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.POLE_SIZE}_{constants.BETA}_{constants.EPSILON}" 
+		buffer_name = f"{args.buffer_name}_{setting}"
+	else:
+		setting = f"{args.env}{constants.ENV}_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.GRAVITY}_{constants.BETA}_{constants.EPSILON}"
+		settingLoad = f"{args.env}{constants.ENV}_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.GRAVITY}_{constants.BETA}_{constants.EPSILON}"
+		#settingLoad = f"{args.env}normal_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.GRAVITY}_{constants.BETA}_{constants.EPSILON}" 
+		buffer_name = f"{args.buffer_name}_{setting}"  
+
+
 
 	# Initialize and load policy
 	policy = DQN.DQN(
 		is_atari,
+		is_cartpole,
 		num_actions,
 		state_dim,
 		device,
@@ -53,7 +63,8 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	i = 0
 
 	state, done = env.reset(), False
-	state = np.array([state[2],state[3]]) # 2dim
+	if is_cartpole:
+		state = np.array([state[2],state[3]]) # 2dim
 	episode_start = True
 	episode_reward = 0
 	episode_timesteps = 0
@@ -63,7 +74,7 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	low_noise_ep = np.random.uniform(0,1) < args.low_noise_p
 
 	# For Policy Visualisation (just like "generate Buffer" but without any random noises) : 
-	if args.grid:
+	if args.grid and is_cartpole: 
 		X = [- env.observation_space.high[2], env.observation_space.high[2]]
 		j = 0		
 		for x in np.linspace(min(X), max(X), 100):
@@ -78,12 +89,28 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 		
 		return None		
 
+	if args.grid:
+		X = [env.observation_space.low[0], env.observation_space.high[0]]
+		Y = [env.observation_space.low[1], env.observation_space.high[1]]
+		j = 0		
+		for x in np.linspace(min(X), max(X), 100):
+			for y in np.linspace(min(Y), max(Y), 100):
+				state = np.array([x,y])
+				action, q_value_array = policy.select_action(state, eval=True) # Shrink the state Dim : state -> [state[2],state[3]]
+				result[j] = {"Action": action, "Car_Position": state[0] , "Car_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item(), "Q_Value_2" : (q_value_array[0][2]).item()}
+				j += 1
+
+		res = pd.DataFrame.from_dict(result, "index")
+		res.to_csv(f"{setting}.csv")
+		
+		return None	
+
 	# Interact with the environment for max_timesteps
 	for t in range(int(args.max_timesteps)):
 
 		episode_timesteps += 1
-		# if episode_num % 50 == 0:
-		# 	env.render()
+		#if episode_num % 50 == 0:
+		#	env.render()
 
 		# If generating the buffer, episode is low noise with p=low_noise_p.
 		# If policy is low noise, we take random actions with p=eval_eps.
@@ -93,7 +120,10 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 				action = env.action_space.sample()
 			else:
 				action, q_value_array = policy.select_action(state, eval=True) # Shrink the state Dim : state -> [state[2],state[3]]
-				result[i] = {"Episode": episode_num, "Action": action, "Pole_Angle": state[0] , "Pole_Angular_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item()}
+				if is_cartpole:
+					result[i] = {"Episode": episode_num, "Action": action, "Pole_Angle": state[0] , "Pole_Angular_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item()}
+				else: 
+					result[i] = {"Action": action, "Car_Position": state[0] , "Car_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item(), "Q_Value_2" : (q_value_array[0][2]).item()}
 				i += 1
 
 		if args.train_behavioral:
@@ -104,7 +134,8 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 
 		# Perform action and log results
 		next_state, reward, done, info = env.step(action)  # interact with env. this is the difference between my grid function and generate buffer. 
-		next_state = np.array([next_state[2],next_state[3]]) # 2dim
+		if is_cartpole:
+			next_state = np.array([next_state[2],next_state[3]]) # 2dim
 		episode_reward += reward
 
 
@@ -133,7 +164,8 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 			i += 1
 			# Reset environment
 			state, done = env.reset(), False
-			state = np.array([state[2],state[3]]) # 2dim
+			if is_cartpole:
+				state = np.array([state[2],state[3]]) # 2dim
 			episode_start = True
 			total_reward += episode_reward
 			episode_reward = 0
@@ -159,13 +191,13 @@ def interact_with_environment(env, replay_buffer, is_atari, num_actions, state_d
 	env.close()
 
 	res = pd.DataFrame.from_dict(result, "index")
-	res.to_csv(f"consoleOutput_{setting}_play.csv")
+	#res.to_csv(f"consoleOutput{setting}_play.csv") # if it is a train -> remove the word _play : just for me
 	print(f"Average reward: {1.0 * total_reward / (episode_num + 1)}")
 
 
 
 # Trains BCQ offline
-def train_BCQ(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters):
+def train_BCQ(env, replay_buffer, is_atari, is_cartpole, num_actions, state_dim, device, args, parameters):
 	# For saving files
 	setting = f"{args.env}_{args.seed}"
 	buffer_name = f"{args.buffer_name}_{setting}"
@@ -173,6 +205,7 @@ def train_BCQ(env, replay_buffer, is_atari, num_actions, state_dim, device, args
 	# Initialize and load policy
 	policy = discrete_BCQ.discrete_BCQ(
 		is_atari,
+		is_cartpole,
 		num_actions,
 		state_dim,
 		device,
@@ -212,17 +245,19 @@ def train_BCQ(env, replay_buffer, is_atari, num_actions, state_dim, device, args
 # Runs policy for X episodes and returns average reward
 # A fixed seed is used for the eval environment
 def eval_policy(policy, env_name, seed, eval_episodes=10):
-	eval_env, _, _, _ = utils.make_env(env_name, atari_preprocessing)
+	eval_env, _, _, _, _ = utils.make_env(env_name, atari_preprocessing)
 	eval_env.seed(seed + 100)
 
 	avg_reward = 0.
 	for _ in range(eval_episodes):
 		state, done = eval_env.reset(), False
-		state = np.array([state[2],state[3]]) # 2dim
+		if policy.is_cartpole:
+			state = np.array([state[2],state[3]]) # 2dim
 		while not done:
 			action, _ = policy.select_action(np.array(state), eval=True)
 			state, reward, done, _ = eval_env.step(action)
-			state = np.array([state[2],state[3]]) # 2dim
+			if policy.is_cartpole:
+				state = np.array([state[2],state[3]]) # 2dim
 			avg_reward += reward
 
 	avg_reward /= eval_episodes  
@@ -364,7 +399,7 @@ if __name__ == "__main__":
 
 	# Load parameters
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--env", default="CartPole-v0")     # OpenAI gym environment name
+	parser.add_argument("--env", default="MountainCar-v0")     # OpenAI gym environment name  # Change Name if you play other gym Env. "MountainCar-v0"
 	parser.add_argument("--seed", default=0, type=int)             # Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--buffer_name", default="Default")        # Prepends name to filename
 	parser.add_argument("--max_timesteps", default=5e4, type=int)  # Max time steps to run environment or train for
@@ -372,9 +407,9 @@ if __name__ == "__main__":
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
 	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy (If you read )
-	parser.add_argument("--generate_buffer", action="store_true")  # If true, generate buffer
+	parser.add_argument("--generate_buffer", action="store_false")  # If true, generate buffer
 	parser.add_argument("--grid", action="store_true") # For Visualisation CartPole : If true, generate grid file as csv form 
-	parser.add_argument("--viper", action="store_false") # For Viper Algorithm
+	parser.add_argument("--viper", action="store_true") # For Viper Algorithm
 	args = parser.parse_args()
 	
 	print("---------------------------------------")	
@@ -400,12 +435,18 @@ if __name__ == "__main__":
 		os.makedirs("./buffers")
 
 	# Make env and determine properties
-	env, is_atari, state_dim, num_actions = utils.make_env(args.env, atari_preprocessing)
-	env.length = constants.POLE_SIZE
+	env, is_atari, is_cartpole, state_dim, num_actions = utils.make_env(args.env, atari_preprocessing)
+	if is_cartpole:
+		env.length = constants.POLE_SIZE
+	else:
+		env.gravity = constants.GRAVITY
 	env._max_episode_steps = constants.MAX_EPISODE_STEPS
 	
-	# Use 2 state dimensions, e.g. Pole Angle, Pole Angular 
-	state_dim = 2
+
+	
+	# Use 2 state dimensions, e.g. Pole Angle, Pole Angular
+	if is_cartpole:
+		state_dim = 2
 	parameters = atari_parameters if is_atari else regular_parameters
 
 	env.seed(args.seed)
@@ -418,9 +459,9 @@ if __name__ == "__main__":
 	replay_buffer = utils.ReplayBuffer(state_dim, is_atari, atari_preprocessing, parameters["batch_size"], parameters["buffer_size"], device)
 
 	if args.train_behavioral or args.generate_buffer or args.grid or args.viper:
-		interact_with_environment(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters)
+		interact_with_environment(env, replay_buffer, is_atari, is_cartpole, num_actions, state_dim, device, args, parameters)
 	else:
-		train_BCQ(env, replay_buffer, is_atari, num_actions, state_dim, device, args, parameters)
+		train_BCQ(env, replay_buffer, is_atari, is_cartpole, num_actions, state_dim, device, args, parameters)
 
 
 

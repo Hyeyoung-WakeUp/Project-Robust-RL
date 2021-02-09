@@ -1,5 +1,7 @@
-MAX_EPISODE_STEPS = 10000
-POLE_SIZE = 0.5
-BETA = 5
+MAX_EPISODE_STEPS = 200
+POLE_SIZE = 0.8
+BETA = 0
 EPSILON = 0.03
-ENV = "noise"
+ENV = "mountain_car"
+# for Mountain Car
+GRAVITY =   0.0025
