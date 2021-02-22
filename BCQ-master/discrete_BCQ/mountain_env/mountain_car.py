@@ -78,7 +78,7 @@ class MountainCarEnv(gym.Env):
 
         self.viewer = None
 
-        self.action_space = spaces.Discrete(3)
+        self.action_space = spaces.Discrete(2)  # for MC with two actions # default 3
         self.observation_space = spaces.Box(
             self.low, self.high, dtype=np.float32
         )
@@ -94,7 +94,10 @@ class MountainCarEnv(gym.Env):
 
         self._steps += 1 # added from cartpole
         position, velocity = self.state
-        velocity += (action - 1) * self.force + math.cos(3 * position) * (-self.gravity)
+        if action == 0:
+            velocity += (action - 1) * self.force + math.cos(3 * position) * (-self.gravity) # if you need more than 2 actions use only this line
+        else:
+            velocity += action * self.force + math.cos(3 * position) * (-self.gravity)
         velocity = np.clip(velocity, -self.max_speed, self.max_speed)
         position += velocity
         position = np.clip(position, self.min_position, self.max_position)

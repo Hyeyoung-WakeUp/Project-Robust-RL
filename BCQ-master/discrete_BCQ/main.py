@@ -60,7 +60,9 @@ def interact_with_environment(env, replay_buffer, is_atari, is_cartpole ,num_act
 	
 	evaluations = []
 	result = {}  # extract data from traning
+	result_play = {} # extract data from playing
 	i = 0
+	j = 0
 
 	state, done = env.reset(), False
 	if is_cartpole:
@@ -97,7 +99,7 @@ def interact_with_environment(env, replay_buffer, is_atari, is_cartpole ,num_act
 			for y in np.linspace(min(Y), max(Y), 100):
 				state = np.array([x,y])
 				action, q_value_array = policy.select_action(state, eval=True) # Shrink the state Dim : state -> [state[2],state[3]]
-				result[j] = {"Action": action, "Car_Position": state[0] , "Car_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item(), "Q_Value_2" : (q_value_array[0][2]).item()}
+				result[j] = {"Action": action, "Car_Position": state[0] , "Car_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item()} # for MC with two actions
 				j += 1
 
 		res = pd.DataFrame.from_dict(result, "index")
@@ -121,10 +123,10 @@ def interact_with_environment(env, replay_buffer, is_atari, is_cartpole ,num_act
 			else:
 				action, q_value_array = policy.select_action(state, eval=True) # Shrink the state Dim : state -> [state[2],state[3]]
 				if is_cartpole:
-					result[i] = {"Episode": episode_num, "Action": action, "Pole_Angle": state[0] , "Pole_Angular_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item()}
+					result_play[j] = {"Episode": episode_num, "Action": action, "Pole_Angle": state[0] , "Pole_Angular_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item()}
 				else: 
-					result[i] = {"Action": action, "Car_Position": state[0] , "Car_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item(), "Q_Value_2" : (q_value_array[0][2]).item()}
-				i += 1
+					result_play[j] = {"Action": action, "Car_Position": state[0] , "Car_Velocity": state[1], "Q_Value_0" : (q_value_array[0][0]).item() , "Q_Value_1" : (q_value_array[0][1]).item()} # for MC with two actions 
+				j += 1
 
 		if args.train_behavioral:
 			if t < parameters["start_timesteps"]:
@@ -160,7 +162,10 @@ def interact_with_environment(env, replay_buffer, is_atari, is_cartpole ,num_act
 		if done:
 			# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
 			print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f} low_noise : {low_noise_ep} ")
-			result[i] = {"Total T": t+1, "Episode": episode_num+1, "Reward": episode_reward}
+			if is_cartpole:
+				result[i] = {"Total T": t+1, "Episode": episode_num+1, "Reward": episode_reward}
+			else:
+				result[i] = {"Total T": t+1, "Episode": episode_num+1, "Position": state[0]  , "Velocity": state[1], "Reward": episode_reward}
 			i += 1
 			# Reset environment
 			state, done = env.reset(), False
@@ -191,7 +196,14 @@ def interact_with_environment(env, replay_buffer, is_atari, is_cartpole ,num_act
 	env.close()
 
 	res = pd.DataFrame.from_dict(result, "index")
-	#res.to_csv(f"consoleOutput{setting}_play.csv") # if it is a train -> remove the word _play : just for me
+	if args.train_behavioral:
+		res.to_csv(f"consoleOutput{setting}.csv")
+	else:
+		res.to_csv(f"consoleOutput{setting}_play.csv") 
+		res_ply = pd.DataFrame.from_dict(result_play, "index")
+		res_ply.to_csv(f"playOutput{setting}.csv")
+
+	
 	print(f"Average reward: {1.0 * total_reward / (episode_num + 1)}")
 
 
@@ -244,7 +256,7 @@ def train_BCQ(env, replay_buffer, is_atari, is_cartpole, num_actions, state_dim,
 
 # Runs policy for X episodes and returns average reward
 # A fixed seed is used for the eval environment
-def eval_policy(policy, env_name, seed, eval_episodes=10):
+def eval_policy(policy, env_name, seed, eval_episodes=10):    # Default = 10 : Evaluation via averaging 10 previous values
 	eval_env, _, _, _, _ = utils.make_env(env_name, atari_preprocessing)
 	eval_env.seed(seed + 100)
 
@@ -299,7 +311,7 @@ def learn_dt(policy, env, setting):
     if is_train:
         student = train_dagger(env, teacher, student, state_transformer, max_iters, n_batch_rollouts, max_samples, train_frac, is_reweight, n_test_rollouts)
         save_dt_policy(student, save_dirname, save_fname)
-        save_dt_policy_viz(student, save_dirname, save_viz_fname)
+        save_dt_policy_viz(student, save_dirname, save_viz_fname) # Labling Feature Name for Tree 
     else:
         student = load_dt_policy(save_dirname, save_fname)
 
@@ -402,13 +414,13 @@ if __name__ == "__main__":
 	parser.add_argument("--env", default="MountainCar-v0")     # OpenAI gym environment name  # Change Name if you play other gym Env. "MountainCar-v0"
 	parser.add_argument("--seed", default=0, type=int)             # Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--buffer_name", default="Default")        # Prepends name to filename
-	parser.add_argument("--max_timesteps", default=5e4, type=int)  # Max time steps to run environment or train for
+	parser.add_argument("--max_timesteps", default=2e5, type=int)  # Max time steps to run environment or train for   # for cartpole default=5e4, for mountain car 5e5, 1e5
 	parser.add_argument("--BCQ_threshold", default=0.3, type=float)# Threshold hyper-parameter for BCQ
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
 	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy (If you read )
-	parser.add_argument("--generate_buffer", action="store_false")  # If true, generate buffer
-	parser.add_argument("--grid", action="store_true") # For Visualisation CartPole : If true, generate grid file as csv form 
+	parser.add_argument("--generate_buffer", action="store_true")  # If true, generate buffer
+	parser.add_argument("--grid", action="store_false") # For Visualisation CartPole : If true, generate grid file as csv form 
 	parser.add_argument("--viper", action="store_true") # For Viper Algorithm
 	args = parser.parse_args()
 	

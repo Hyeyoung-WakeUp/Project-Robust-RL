@@ -41,7 +41,7 @@ def save_dt_policy(dt_policy, dirname, fname):
 
 def save_dt_policy_viz(dt_policy, dirname, fname):
     if not os.path.isdir(dirname):
-        os.makedirs(dirname)
+        os.makedirs(dirname)    
     export_graphviz(dt_policy.tree, dirname + '/' + fname)
 
 def load_dt_policy(dirname, fname):
