@@ -33,13 +33,13 @@ class FC_Q(nn.Module):
 	def __init__(self, state_dim, num_actions):
 		super(FC_Q, self).__init__()
 		self.l1 = nn.Linear(state_dim, 256)
-		# self.l2 = nn.Linear(256, 256)
+		# self.l2 = nn.Linear(256, 256)  
 		self.l3 = nn.Linear(256, num_actions)
 
 
 	def forward(self, state):
 		q = F.relu(self.l1(state))
-		# q = F.relu(self.l2(q))
+		#  q = F.relu(self.l2(q))  
 		return self.l3(q)
 
 
@@ -145,7 +145,11 @@ class DQN(object):
 					eta = step_size * torch.sign(grad.detach())
 					x_adv = x_adv.data.detach() + eta.detach()
 					x_adv = torch.min(torch.max(x_adv, stateSingle - epsilon), stateSingle + epsilon)
-					x_adv[0] = torch.clamp(x_adv[0], -0.418, 0.418)
+					if self.is_cartpole:
+						x_adv[0] = torch.clamp(x_adv[0], -0.418, 0.418)
+					else:
+						x_adv[0] =  torch.clamp(x_adv[0], -1.2, 0.6)
+						x_adv[1] =  torch.clamp(x_adv[1], -0.07, 0.07)
 				
 				x_adv = Variable(x_adv, requires_grad=False)
 				total_loss += criterion_kl(F.log_softmax(self.Q(x_adv)), F.softmax(self.Q(stateSingle)))

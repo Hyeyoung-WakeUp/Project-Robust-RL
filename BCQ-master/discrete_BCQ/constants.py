@@ -1,7 +1,7 @@
-MAX_EPISODE_STEPS =200
+MAX_EPISODE_STEPS = 500
 POLE_SIZE = 0.8
-BETA = 0
-EPSILON = 0.003
-ENV = "mountain_car"
+BETA = 7
+EPSILON = 2
+ENV = "adversary"   # mountain_car #
 # for Mountain Car
-GRAVITY = 0.0025
+GRAVITY = 0.003

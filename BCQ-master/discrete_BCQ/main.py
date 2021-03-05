@@ -22,7 +22,7 @@ def interact_with_environment(env, replay_buffer, is_atari, is_cartpole ,num_act
 	# For saving files
 	if is_cartpole:
 		setting = f"{args.env}{constants.ENV}_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.POLE_SIZE}_{constants.BETA}_{constants.EPSILON}"
-		settingLoad = f"{args.env}normal_{args.seed}_{constants.MAX_EPISODE_STEPS}_{0.8}_{constants.BETA}_{constants.EPSILON}"
+		settingLoad = f"{args.env}normal_{args.seed}_{constants.MAX_EPISODE_STEPS}_0.2_7_2"
 		#settingLoad = f"{args.env}normal_{args.seed}_{constants.MAX_EPISODE_STEPS}_{constants.POLE_SIZE}_{constants.BETA}_{constants.EPSILON}" 
 		buffer_name = f"{args.buffer_name}_{setting}"
 	else:
@@ -411,16 +411,16 @@ if __name__ == "__main__":
 
 	# Load parameters
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--env", default="MountainCar-v0")     # OpenAI gym environment name  # Change Name if you play other gym Env. "MountainCar-v0"
+	parser.add_argument("--env", default="CartPole-v0")     # OpenAI gym environment name  # Change Name if you play other gym Env. "MountainCar-v0", "CartPole-v0"
 	parser.add_argument("--seed", default=0, type=int)             # Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--buffer_name", default="Default")        # Prepends name to filename
-	parser.add_argument("--max_timesteps", default=2e5, type=int)  # Max time steps to run environment or train for   # for cartpole default=5e4, for mountain car 5e5, 1e5
+	parser.add_argument("--max_timesteps", default=5e4, type=int)  # Max time steps to run environment or train for   # for cartpole default=5e4, for mountain car 2e5
 	parser.add_argument("--BCQ_threshold", default=0.3, type=float)# Threshold hyper-parameter for BCQ
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
 	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy (If you read )
-	parser.add_argument("--generate_buffer", action="store_true")  # If true, generate buffer
-	parser.add_argument("--grid", action="store_false") # For Visualisation CartPole : If true, generate grid file as csv form 
+	parser.add_argument("--generate_buffer", action="store_false")  # If true, generate buffer
+	parser.add_argument("--grid", action="store_true") # For Visualisation CartPole : If true, generate grid file as csv form 
 	parser.add_argument("--viper", action="store_true") # For Viper Algorithm
 	args = parser.parse_args()
 	
