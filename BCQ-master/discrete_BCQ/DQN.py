@@ -129,11 +129,23 @@ class DQN(object):
 
 			total_loss = 0
 
+			step_size_unnorm = [0,0]
+			step_size_unnorm[0] = step_size * (constants.XMAX - constants.XMIN)
+			step_size_unnorm[1] = step_size * (constants.YMAX - constants.YMIN)
+
+			epsilon_unnorm = [0,0]
+			epsilon_unnorm[0] = epsilon * (constants.XMAX - constants.XMIN)
+			epsilon_unnorm[1] = epsilon * (constants.YMAX - constants.YMIN)
+
 			for i in range(batch_size):
 				stateSingle = state[i]
 				actionSingle = action[i]
-				x_adv = stateSingle.detach() + 0.001 * torch.randn(stateSingle.shape).to(self.device)
-
+				rnd = (0.001 * torch.randn(stateSingle.shape).to(self.device))
+				rnd[0] = rnd[0] * (constants.XMAX - constants.XMIN)
+				rnd[1] = rnd[1] * (constants.YMAX - constants.YMIN)
+				x_adv = stateSingle.detach() + rnd
+				#x_adv[0] = x_adv[0] + (0.001 * torch.randn(1).to(self.device) * (constants.XMAX - constants.XMIN) + constants.XMIN)
+				#x_adv[1] = x_adv[1] + (0.001 * torch.randn(1).to(self.device) * (constants.YMAX - constants.YMIN) + constants.YMIN)
 
 				for _ in range(perturb_steps):
 					x_adv.requires_grad_(True)
@@ -142,16 +154,16 @@ class DQN(object):
 						#loss = self.local_lip(stateSingle, x_adv, actionSingle , 1, np.inf)
 					grad = torch.autograd.grad(loss, [x_adv])[0]
 					# renorming gradient
-					eta = step_size * torch.sign(grad.detach())
+					eta = torch.sign(grad.detach())
+					eta[0] = step_size_unnorm[0] * eta[0]
+					eta[1] = step_size_unnorm[1] * eta[1] 
 					x_adv = x_adv.data.detach() + eta.detach()
-					x_adv = torch.min(torch.max(x_adv, stateSingle - epsilon), stateSingle + epsilon)
-					if self.is_cartpole:
-						x_adv[0] = torch.clamp(x_adv[0], -0.418, 0.418)
-					else:
-						x_adv[0] =  torch.clamp(x_adv[0], -1.2, 0.6)
-						x_adv[1] =  torch.clamp(x_adv[1], -0.07, 0.07)
-				
-				x_adv = Variable(x_adv, requires_grad=False)
+					x_adv[0] = torch.min(torch.max(x_adv[0], stateSingle[0] - epsilon_unnorm[0]), stateSingle[0] + epsilon_unnorm[0])
+					x_adv[1] = torch.min(torch.max(x_adv[1], stateSingle[1] - epsilon_unnorm[1]), stateSingle[1] + epsilon_unnorm[1])
+					x_adv[0] = torch.clamp(x_adv[0], constants.XMIN, constants.XMAX) 
+					x_adv[1] = torch.clamp(x_adv[1], constants.YMIN, constants.YMAX) 
+
+				v = Variable(x_adv, requires_grad=False)
 				total_loss += criterion_kl(F.log_softmax(self.Q(x_adv)), F.softmax(self.Q(stateSingle)))
 
 				# calculate robust loss
