@@ -18,7 +18,7 @@ from .log import *
 def get_rollout(env, policy, render):
     obs, done = np.array(env.reset()), False
     rollout = []
-    if policy.is_cartpole:
+    if env.is_cartpole:
         obs = [obs[2], obs[3]]
 
     while not done:
@@ -34,7 +34,7 @@ def get_rollout(env, policy, render):
 
         # Step
         next_obs, rew, done, info = env.step(act)
-        if policy.is_cartpole:
+        if env.is_cartpole:
             next_obs = [next_obs[2], next_obs[3]]
 
         # Rollout (s, a, r)

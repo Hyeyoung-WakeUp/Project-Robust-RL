@@ -298,11 +298,10 @@ def learn_dt(policy, env, setting):
     save_fname = f"dt_policy_{setting}.pk"
     save_viz_fname = f"dt_policy_{setting}.dot"
     is_train = True
-    
+    env.is_cartpole = policy.is_cartpole
     # Logging
     set_file(log_fname)
-    
-    # Data structures
+	# Data structures
     teacher = policy
     student = DTPolicy(max_depth)
     state_transformer = lambda x: x
@@ -310,8 +309,7 @@ def learn_dt(policy, env, setting):
     # Train student
     if is_train:
         student = train_dagger(env, teacher, student, state_transformer, max_iters, n_batch_rollouts, max_samples, train_frac, is_reweight, n_test_rollouts)
-        save_dt_policy(student, save_dirname, save_fname)
-        save_dt_policy_viz(student, save_dirname, save_viz_fname) # Labling Feature Name for Tree 
+        save_dt_policy(student, save_dirname, save_fname)  
     else:
         student = load_dt_policy(save_dirname, save_fname)
 
@@ -319,6 +317,7 @@ def learn_dt(policy, env, setting):
     rew = test_policy(env, student, state_transformer, n_test_rollouts)
     log('Final reward: {}'.format(rew), INFO)
     log('Number of nodes: {}'.format(student.tree.tree_.node_count), INFO)
+    save_dt_policy_viz(student, save_dirname, save_viz_fname)
 
 def bin_acts(policy, env, setting):
     # Parameters
@@ -418,10 +417,10 @@ if __name__ == "__main__":
 	parser.add_argument("--BCQ_threshold", default=0.3, type=float)# Threshold hyper-parameter for BCQ
 	parser.add_argument("--low_noise_p", default=0.2, type=float)  # Probability of a low noise episode when generating buffer
 	parser.add_argument("--rand_action_p", default=0.2, type=float)# Probability of taking a random action when generating buffer, during non-low noise episode
-	parser.add_argument("--train_behavioral", action="store_false") # If true, train behavioral policy (If you read )
+	parser.add_argument("--train_behavioral", action="store_true") # If true, train behavioral policy (If you read )
 	parser.add_argument("--generate_buffer", action="store_true") # If true, generate buffer
 	parser.add_argument("--grid", action="store_true")             # For Visualisation CartPole : If true, generate grid file as csv form 
-	parser.add_argument("--viper", action="store_true")            # For Viper Algorithm
+	parser.add_argument("--viper", action="store_false")            # For Viper Algorithm
 	args = parser.parse_args()
 	
 	print("---------------------------------------")	
